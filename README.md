@@ -5,7 +5,7 @@ Python/FastAPI runtime baseline for the private RAG backend described in
 
 ## Prerequisites
 
-- Python 3.12
+- Python 3.11 or later
 - `uv`
 
 ## Local setup
