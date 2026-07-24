@@ -19,3 +19,10 @@ The approved functional scope, assumptions, architecture, and acceptance criteri
 - Never add secrets, API keys, credentials, or populated environment files to Git.
 - Report files changed, checks executed, results, and any remaining risks or unverified assumptions.
 - Do not claim completion unless every stated acceptance criterion has been verified.
+
+# Validation Commands
+
+- Synchronise the environment with `uv sync`.
+- Run tests with `uv run pytest`.
+- Run linting with `uv run ruff check .`.
+- Check formatting with `uv run ruff format --check .`.
