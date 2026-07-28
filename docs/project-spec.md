@@ -20,7 +20,7 @@ The service must run locally through Docker Compose and be reproducible from a f
 * PostgreSQL
 * pgvector
 * LangChain
-* OpenAI `text-embedding-3-small`
+* OpenAI `text-embedding-3-small` embeddings at 1536 dimensions
 * OpenAI-compatible chat model
 * Docker and Docker Compose
 * Pydantic request and response models
@@ -66,13 +66,17 @@ Configuration must be read from environment variables, including:
 
 * database connection URL;
 * OpenAI API key;
-* embedding model;
 * chat model;
 * document folder;
 * chunking settings;
 * retrieval `top_k`.
 
 No secrets may be committed to Git.
+
+The embedding model and embedding dimension are fixed project-schema decisions:
+`text-embedding-3-small` at 1536 dimensions. They must not be freely changed
+through runtime configuration. Changing either requires a schema migration,
+re-embedding all stored chunks, and rebuilding the vector index.
 
 ## 4. Working assumptions
 
@@ -89,6 +93,10 @@ These assumptions stand in for client clarification and may be revised before im
 * Source chunks should include enough metadata to identify the original document and chunk location.
 * Local Docker Compose delivery is required; cloud deployment is not part of this project.
 * Basic automated tests are required even though the original brief does not state them explicitly.
+* Embeddings use the fixed `text-embedding-3-small` model at 1536 dimensions.
+* Cosine similarity uses an HNSW index with the pgvector cosine operator class.
+* A future embedding-model or embedding-dimension change requires a schema migration,
+  re-embedding all stored chunks, and rebuilding the vector index.
 
 ## 5. Proposed API contract
 
@@ -127,13 +135,26 @@ The system will contain:
 * a FastAPI application;
 * a command-line document-ingestion script;
 * document extraction and chunking services;
-* LangChain-based embedding and LLM integrations;
+* LangChain-based embedding and LLM integrations using the fixed
+  `text-embedding-3-small` / 1536-dimension embedding baseline;
 * SQLAlchemy models and database access;
 * Alembic migrations;
 * PostgreSQL with the pgvector extension;
-* a vector similarity retrieval service;
-* Docker Compose services for the API and database;
+* an HNSW pgvector cosine index and a vector similarity retrieval service;
+* a Docker Compose PostgreSQL/pgvector service introduced with the database
+  foundation, then an API service added to complete the multi-service workflow;
 * automated unit and integration tests.
+
+### Database and migration architecture
+
+Slice 2 establishes database environment configuration, the permanent local
+PostgreSQL/pgvector Compose service, SQLAlchemy/Alembic infrastructure, and a
+migration that enables the pgvector extension. Slice 3 owns the document and
+chunk schema, the fixed `vector(1536)` embedding column, and the HNSW cosine
+index migration. Slice 6 owns retrieval behaviour and query-plan validation.
+
+The HNSW index uses pgvector's cosine operator class for the cosine similarity
+queries required by `/chat`.
 
 ### Ingestion flow
 
@@ -141,7 +162,7 @@ The system will contain:
 Document folder
 → PDF/text extraction
 → chunking
-→ embedding generation
+→ fixed `text-embedding-3-small` embedding generation (1536 dimensions)
 → PostgreSQL/pgvector persistence
 ```
 
@@ -149,7 +170,7 @@ Document folder
 
 ```text
 Question
-→ question embedding
+→ fixed `text-embedding-3-small` question embedding (1536 dimensions)
 → cosine similarity search
 → top-k chunks
 → LangChain LLM call
@@ -175,9 +196,11 @@ At minimum, the database must store:
 * chunk index;
 * page number where available;
 * chunk text;
-* embedding vector.
+* embedding vector stored as `vector(1536)`.
 
 The database schema must prevent duplicate storage of unchanged document content.
+It must also define an HNSW index over chunk embeddings using pgvector's cosine
+operator class.
 
 ## 8. Error handling
 
@@ -204,7 +227,11 @@ Automated tests must cover at least:
 * chunking behaviour;
 * duplicate-ingestion behaviour;
 * persistence of documents, chunks and embeddings;
-* vector retrieval ordering;
+* migration upgrade, downgrade, and re-upgrade behaviour, including verification
+  that the pgvector extension is enabled;
+* the fixed embedding schema: a 1536-dimension vector column and its HNSW cosine
+  index;
+* cosine vector retrieval ordering and query-plan validation;
 * `/chat` request validation;
 * `/chat` response structure;
 * provider failures through mocked or fake integrations.
@@ -212,6 +239,8 @@ Automated tests must cover at least:
 Ordinary automated tests must not make paid OpenAI requests.
 
 A separate manual smoke test may verify the complete real-provider workflow.
+It must use the fixed embedding model and verify that provider responses conform
+to the 1536-dimension schema before persistence.
 
 ## 10. Delivery requirements
 
@@ -238,12 +267,19 @@ The README must document:
 * test and lint commands;
 * shutdown and cleanup.
 
+The database Compose service and database-related `.env.example` settings are
+introduced in Slice 2 so that migrations can be run and validated locally. The
+Dockerfile, API service, and completed multi-service Compose workflow are added
+in Slice 8.
+
 ## 11. Acceptance criteria
 
 The project is complete when:
 
 * a fresh clone can be configured and started using the README;
 * `docker compose up --build` starts PostgreSQL/pgvector and the FastAPI service;
+* the database migration path can be applied, reverted, and reapplied against the
+  local PostgreSQL/pgvector service;
 * the ingestion script processes the supplied PDF and text sample documents;
 * running ingestion again does not create duplicate records;
 * `/chat` returns a relevant answer for a question about the sample documents;
@@ -255,11 +291,14 @@ The project is complete when:
 ## 12. Implementation slices
 
 1. Python and FastAPI runtime baseline
-2. PostgreSQL, pgvector and database migrations
-3. Document models and persistence
+2. Database configuration; the permanent PostgreSQL/pgvector Compose service;
+   database `.env.example` settings; SQLAlchemy/Alembic infrastructure; the
+   initial pgvector-extension migration; and migration validation
+3. Document and chunk schema; the fixed `vector(1536)` embedding column; the
+   HNSW cosine index and its migrations; and persistence
 4. PDF/text extraction and chunking
 5. Embedding integration and idempotent ingestion
-6. Cosine vector retrieval
+6. Cosine retrieval behaviour and query-plan validation
 7. LangChain-backed `/chat`
-8. Docker Compose and environment configuration
-9. Tests, README and fresh-clone verification
+8. API containerisation and completion of the multi-service Compose workflow
+9. Remaining tests, sample documents, README and fresh-clone verification
