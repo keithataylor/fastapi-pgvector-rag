@@ -34,7 +34,8 @@ The health endpoint is available at `http://127.0.0.1:8000/health` and returns:
 Docker Desktop is required to run the local PostgreSQL/pgvector database.
 
 Create a local environment file and update `POSTGRES_PASSWORD` and the matching
-password in `DATABASE_URL`:
+password in both database URLs. `MIGRATION_TEST_DATABASE_URL` must name a
+separate disposable database:
 
 ```powershell
 Copy-Item .env.example .env
