@@ -71,3 +71,32 @@ def _chunk_size_setting() -> int:
             f"CHUNK_SIZE must be between {MIN_CHUNK_SIZE} and {MAX_CHUNK_SIZE}."
         )
     return chunk_size
+
+
+@dataclass(frozen=True)
+class RetrievalSettings:
+    """Settings required only by cosine retrieval."""
+
+    openai_api_key: str
+    retrieval_top_k: int
+
+
+def get_retrieval_settings() -> RetrievalSettings:
+    """Load the environment configuration required for retrieval."""
+    return RetrievalSettings(
+        openai_api_key=_required_setting("OPENAI_API_KEY"),
+        retrieval_top_k=_top_k_setting(),
+    )
+
+
+def _top_k_setting() -> int:
+    raw_top_k = os.environ.get("RETRIEVAL_TOP_K", "").strip()
+    if not raw_top_k:
+        return 5
+    try:
+        top_k = int(raw_top_k)
+    except ValueError as error:
+        raise ConfigurationError("RETRIEVAL_TOP_K must be an integer.") from error
+    if top_k <= 0:
+        raise ConfigurationError("RETRIEVAL_TOP_K must be greater than zero.")
+    return top_k

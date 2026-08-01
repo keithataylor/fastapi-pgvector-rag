@@ -41,6 +41,13 @@ class OpenAIEmbedder:
             raise EmbeddingError("Embedding provider failed.") from error
         return validate_embeddings(texts, embeddings)
 
+    def embed_query(self, query: str) -> list[float]:
+        try:
+            embedding = self._client.embed_query(query)
+        except Exception as error:
+            raise EmbeddingError("Embedding provider failed.") from error
+        return validate_embeddings([query], [embedding])[0]
+
 
 def validate_embeddings(
     texts: Sequence[str], embeddings: Sequence[Sequence[float]]
