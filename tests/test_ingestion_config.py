@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from app.core.config import ConfigurationError, get_ingestion_settings
+from app.core.config import (
+    ConfigurationError,
+    get_ingestion_settings,
+)
 from app.services.chunking import DEFAULT_CHUNK_SIZE
 
 
