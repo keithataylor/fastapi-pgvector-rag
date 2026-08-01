@@ -89,6 +89,25 @@ def get_retrieval_settings() -> RetrievalSettings:
     )
 
 
+@dataclass(frozen=True)
+class ChatSettings:
+    """Settings required only by the chat endpoint."""
+
+    openai_api_key: str
+    chat_model: str
+    retrieval_top_k: int
+
+
+def get_chat_settings() -> ChatSettings:
+    """Load the environment configuration required for chat requests."""
+    retrieval_settings = get_retrieval_settings()
+    return ChatSettings(
+        openai_api_key=retrieval_settings.openai_api_key,
+        chat_model=_required_setting("CHAT_MODEL"),
+        retrieval_top_k=retrieval_settings.retrieval_top_k,
+    )
+
+
 def _top_k_setting() -> int:
     raw_top_k = os.environ.get("RETRIEVAL_TOP_K", "").strip()
     if not raw_top_k:
