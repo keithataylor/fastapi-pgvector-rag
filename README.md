@@ -124,3 +124,8 @@ To permanently delete local PostgreSQL data, use the destructive command below:
 ```powershell
 docker compose --env-file .env down -v
 ```
+
+
+## Proprietary Notice
+
+Copyright © 2026 Keith A. Taylor. All rights reserved. This repository contains proprietary software developed independently before any client engagement and is provided solely for evaluation and demonstration purposes. No permission is granted to copy, modify, distribute, publish, sublicense, or use the software in whole or in part without the copyright owner’s prior written consent.
