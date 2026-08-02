@@ -22,9 +22,12 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       CHAT_MODEL: ${CHAT_MODEL:-}
+      DOCUMENT_FOLDER: /app/documents
       RETRIEVAL_TOP_K: ${RETRIEVAL_TOP_K:-5}
     ports:
       - "8000:8000"
+    volumes:
+      - ./documents:/app/documents:ro
     depends_on:
       db:
         condition: service_healthy
