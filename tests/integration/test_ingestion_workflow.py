@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from uuid import UUID
+from collections.abc import Sequence
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -11,6 +13,7 @@ from app.services.embeddings import EMBEDDING_DIMENSIONS
 from app.services.ingestion import IngestionService
 
 
+SAMPLE_DOCUMENTS = Path(__file__).parents[2] / "documents"
 pytestmark = pytest.mark.migration_integration
 
 
@@ -26,7 +29,7 @@ def _require_integration() -> str:
 
 
 class FakeEmbedder:
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+    def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         return [[0.0] * EMBEDDING_DIMENSIONS for _ in texts]
 
 
@@ -58,5 +61,52 @@ def test_ingestion_persists_and_is_idempotent(tmp_path: Path) -> None:
                 connection.execute(text("SELECT count(*) FROM chunks")).scalar_one()
                 == 2
             )
+    finally:
+        engine.dispose()
+
+
+def test_committed_samples_ingest_with_complete_source_metadata() -> None:
+    database_url = _require_integration()
+    engine = create_engine(database_url)
+    session_factory = sessionmaker[Session](bind=engine, expire_on_commit=False)
+
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("DELETE FROM chunks"))
+            connection.execute(text("DELETE FROM documents"))
+
+        service = IngestionService(session_factory, FakeEmbedder(), 1000)
+        first_report = service.ingest_folder(SAMPLE_DOCUMENTS)
+        assert [message.status for message in first_report.messages] == [
+            "ingested",
+            "ingested",
+        ]
+
+        with engine.connect() as connection:
+            rows = connection.execute(
+                text(
+                    "SELECT documents.id, documents.filename, chunks.page_number, "
+                    "chunks.chunk_index, chunks.text "
+                    "FROM chunks JOIN documents ON documents.id = chunks.document_id "
+                    "ORDER BY documents.filename, chunks.chunk_index"
+                )
+            ).all()
+
+        assert len(rows) == 2
+        for document_id, filename, page_number, chunk_index, chunk_text in rows:
+            assert UUID(str(document_id))
+            assert filename in {
+                "northstar-cancellation-policy.txt",
+                "northstar-notice-policy.pdf",
+            }
+            assert page_number is None or page_number >= 1
+            assert chunk_index >= 0
+            assert "30 days" in chunk_text
+
+        second_report = service.ingest_folder(SAMPLE_DOCUMENTS)
+        assert [message.status for message in second_report.messages] == [
+            "skipped",
+            "skipped",
+        ]
     finally:
         engine.dispose()

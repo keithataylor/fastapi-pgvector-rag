@@ -1,0 +1,7 @@
+Northstar service cancellation policy
+
+Either party may cancel the service agreement with 30 days' written notice.
+Send cancellation notices by email to contracts@example.test.
+
+This fictional document is included only to demonstrate local ingestion,
+retrieval, and grounded chat behaviour.

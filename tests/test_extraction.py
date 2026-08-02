@@ -13,6 +13,21 @@ from app.services.extraction import (
 )
 
 
+SAMPLE_DOCUMENTS = Path(__file__).parents[1] / "documents"
+
+
+def test_committed_samples_include_extractable_text_and_pdf() -> None:
+    text_path = SAMPLE_DOCUMENTS / "northstar-cancellation-policy.txt"
+    pdf_path = SAMPLE_DOCUMENTS / "northstar-notice-policy.pdf"
+
+    assert text_path.is_file()
+    assert pdf_path.is_file()
+    assert "30 days' written notice" in extract_document(text_path)[0].text
+    assert extract_document(text_path)[0].page_number is None
+    assert "30 days written notice" in extract_document(pdf_path)[0].text
+    assert extract_document(pdf_path)[0].page_number == 1
+
+
 def test_extracts_utf8_text_with_no_page_number(tmp_path: Path) -> None:
     path = tmp_path / "notes.txt"
     path.write_text("Hello, world.", encoding="utf-8")
@@ -88,3 +103,6 @@ def test_rejects_pdf_with_no_extractable_text(
 def test_rejects_malformed_pdf(tmp_path: Path) -> None:
     path = tmp_path / "broken.pdf"
     path.write_bytes(b"not a pdf")
+
+    with pytest.raises(DocumentExtractionError, match="Unable to read PDF"):
+        extract_document(path)
