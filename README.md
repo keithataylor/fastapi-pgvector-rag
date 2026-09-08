@@ -1,6 +1,6 @@
 # FastAPI pgvector RAG
 
-A private FastAPI retrieval-augmented generation backend using PostgreSQL,
+A FastAPI retrieval-augmented generation backend using PostgreSQL,
 pgvector, LangChain, and OpenAI. It ingests PDF and UTF-8 text documents and
 returns grounded answers plus the source chunks used.
 
